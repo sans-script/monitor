@@ -57,8 +57,18 @@ SITES = [
     ("SEMIT Cloud", "https://cloudsemit.saoluis.ma.gov.br/"),
 ]
 
-INTERVAL_SECONDS = 30
+# Polling interval (seconds) between cycles. Lower -> faster detection, but more CPU/network.
+INTERVAL_SECONDS = 5
 MAX_WORKERS = 10
+
+# Timeouts
+REQUEST_TIMEOUT = 5  # seconds for lightweight HTTP checks
+SELENIUM_PAGE_LOAD_TIMEOUT = 10  # seconds for Selenium page loads
+SELENIUM_MAX_ATTEMPTS = 1
+
+# Only use Selenium for sites that require JS rendering. Leave empty to avoid heavy browser starts.
+# Add exact hostnames or full URLs that need Selenium, e.g. {"https://example.com"}
+SELENIUM_REQUIRED = set()
 
 def get_chrome_options():
     """Optimized Chrome options for headless mode"""
@@ -97,20 +107,27 @@ def check(url):
     # 1. Fast path: try requests first to get HTTP status code quickly
     http_code = None
     try:
-        r = requests.get(url, timeout=10, verify=False, allow_redirects=True, headers={
+        r = requests.get(url, timeout=REQUEST_TIMEOUT, verify=False, allow_redirects=True, headers={
              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         })
         http_code = r.status_code
         if http_code >= 500:
              ms = int((time.perf_counter() - t0) * 1000)
              return False, http_code, ms, f"HTTP {http_code} - Erro do Servidor"
-    except Exception:
-        pass # Fallback to Selenium
+        # If requests succeeded and returned a non-5xx code, consider site up.
+        ms = int((time.perf_counter() - t0) * 1000)
+        return True, http_code, ms, ""
+    except requests.RequestException as e:
+        # If the site is known to require Selenium rendering, try the heavy path.
+        if url not in SELENIUM_REQUIRED:
+            ms = int((time.perf_counter() - t0) * 1000)
+            return False, "-", ms, f"Request error: {str(e)}"
+        # else: fall through to Selenium for JS-heavy sites
 
     # 2. Heavy path: Selenium
     driver = None
     attempts = 0
-    max_attempts = 2
+    max_attempts = SELENIUM_MAX_ATTEMPTS
     
     while attempts < max_attempts:
         try:
@@ -118,12 +135,12 @@ def check(url):
             service = Service()
             driver = webdriver.Chrome(service=service, options=get_chrome_options())
             
-            driver.set_page_load_timeout(30)
-            driver.set_script_timeout(30)
+            driver.set_page_load_timeout(SELENIUM_PAGE_LOAD_TIMEOUT)
+            driver.set_script_timeout(SELENIUM_PAGE_LOAD_TIMEOUT)
             
             driver.get(url)
-            # Small random sleep to behave like human/allow JS execution
-            time.sleep(random.uniform(0.5, 1))
+            # Small short sleep to allow minimal JS execution (keep small)
+            time.sleep(random.uniform(0.2, 0.5))
             
             page_text = driver.page_source
             title = driver.title if driver.title else "Sem título"
@@ -261,8 +278,10 @@ def render_html(rows, generated_at):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sentinel Status - São Luís</title>
-    <meta http-equiv="refresh" content="5">
+    <title>Sentinela - São Luís</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <style>
         :root {{
             --bg-body: #0f172a;
@@ -387,6 +406,20 @@ def render_html(rows, generated_at):
     <div class="grid">
         {''.join(cards)}
     </div>
+    <script>
+        (function refreshNoCache(){
+            setTimeout(function(){
+                try {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('_', Date.now());
+                    window.location.replace(url.toString());
+                } catch (e) {
+                    // Fallback: simple reload
+                    window.location.reload();
+                }
+            }, 5000);
+        })();
+    </script>
 </body>
 </html>
 """

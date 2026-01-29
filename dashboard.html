@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentinela - São Luís</title>
+    <meta http-equiv="refresh" content="5">
+    <style>
+        :root {
+            --bg-body: #0f172a;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            
+            /* Status Colors */
+            --bg-up: #064e3b;      /* Dark Green */
+            --bg-down: #7f1d1d;    /* Dark Red */
+            --border-up: #059669;
+            --border-down: #dc2626;
+            --text-up: #ecfdf5;
+            --text-down: #fef2f2;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-body);
+            color: var(--text-main);
+            margin: 0;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+        h1 { margin:0 0 6px 0; font-size:18px; }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1rem;
+        }
+        .meta { color: var(--text-muted); font-size: 0.875rem; font-family: monospace; }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+            gap: 1rem;
+            grid-auto-flow: row;
+        }
+        
+        .card {
+            border: 1px solid transparent;
+            border-radius: 8px;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            text-decoration: none;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            min-height: 80px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            overflow: hidden; /* Prevent spill */
+        }
+        
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.3);
+            filter: brightness(1.15);
+            z-index: 10;
+        }
+
+        /* Status Styles */
+        .status-up {
+            background-color: var(--bg-up);
+            border-color: var(--border-up);
+            color: var(--text-up);
+        }
+        
+        .status-down {
+            background-color: var(--bg-down);
+            border-color: var(--border-down);
+            color: var(--text-down);
+            animation: pulse 2s infinite;
+        }
+        
+        .site-name {
+            font-weight: 700;
+            font-size: 1.1rem;
+            line-height: 1.25;
+            word-wrap: break-word; /* Ensure long words wrap */
+            max-width: 100%;
+        }
+        
+        /* Sizes */
+        .card-hero {
+            grid-column: span 2;
+            min-height: 120px;
+            font-size: 1.3em;
+        }
+        
+        .card-highlight {
+            min-height: 90px;
+            /* Default column span is 1 */
+        }
+
+        .card-small {
+            min-height: 60px;
+            opacity: 0.9;
+            font-size: 0.9em;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        @media (max-width: 640px) {
+            .grid { grid-template-columns: 1fr; }
+            .card-hero { grid-column: span 1; }
+            body { padding: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <h1>🛰️ Painel de Monitoramento</h1>
+    <div class="meta">Última checagem: 2026-01-29 15:15:44 (a página recarrega a cada 5s)</div>
+    <br>
+    <div class="grid">
+        
+        <a href="https://saoluis.ma.gov.br" target="_blank" class="card card-hero status-up" title="Prefeitura São Luís - ONLINE (71ms)">
+            <div class="site-name">Prefeitura São Luís</div>
+        </a>
+        
+        <a href="https://ma.gov.br" target="_blank" class="card card-hero status-down" title="Gov Maranhão - OFFLINE: Request error: HTTPSConnectionPool(host='ma.gov.br', port=443): Read timed out. (read timeout=1.2)">
+            <div class="site-name">Gov Maranhão</div>
+        </a>
+        
+        <a href="https://sei.saoluis.ma.gov.br" target="_blank" class="card card-highlight status-up" title="SEI - ONLINE (786ms)">
+            <div class="site-name">SEI</div>
+        </a>
+        
+        <a href="https://diariooficial.saoluis.ma.gov.br" target="_blank" class="card card-highlight status-up" title="Diário Oficial - ONLINE (124ms)">
+            <div class="site-name">Diário Oficial</div>
+        </a>
+        
+        <a href="https://saoluis.giap.com.br" target="_blank" class="card card-highlight status-up" title="GIAP - ONLINE (121ms)">
+            <div class="site-name">GIAP</div>
+        </a>
+        
+        <a href="https://eouv.saoluis.ma.gov.br" target="_blank" class="card card-highlight status-up" title="E-OUV - ONLINE (68ms)">
+            <div class="site-name">E-OUV</div>
+        </a>
+        
+        <a href="https://esic.saoluis.ma.gov.br" target="_blank" class="card card-highlight status-up" title="E-SIC - ONLINE (90ms)">
+            <div class="site-name">E-SIC</div>
+        </a>
+        
+        <a href="https://pcacontratos.saoluis.ma.gov.br" target="_blank" class="card card-highlight status-up" title="PCA Contratos - ONLINE (86ms)">
+            <div class="site-name">PCA Contratos</div>
+        </a>
+        
+        <a href="https://conecta.saoluis.ma.gov.br" target="_blank" class="card card-highlight status-up" title="Conecta São Luís - ONLINE (189ms)">
+            <div class="site-name">Conecta São Luís</div>
+        </a>
+        
+        <a href="https://bi.saoluis.ma.gov.br/" target="_blank" class="card card-highlight status-up" title="SEMUS - BI - ONLINE (578ms)">
+            <div class="site-name">SEMUS - BI</div>
+        </a>
+        
+        <a href="https://transparencia.saoluis.ma.gov.br" target="_blank" class="card card-highlight status-up" title="Portal da Transparência - ONLINE (712ms)">
+            <div class="site-name">Portal da Transparência</div>
+        </a>
+        
+        <a href="https://transparenciabi.saoluis.ma.gov.br" target="_blank" class="card card-highlight status-down" title="Transparência BI - OFFLINE: HTTP 502 - Erro do Servidor">
+            <div class="site-name">Transparência BI</div>
+        </a>
+        
+        <a href="https://precatoriofundef.saoluis.ma.gov.br" target="_blank" class="card card-small status-up" title="Precatório FUNDEF - ONLINE (527ms)">
+            <div class="site-name">Precatório FUNDEF</div>
+        </a>
+        
+        <a href="https://1doc-legado.saoluis.ma.gov.br/auth/login" target="_blank" class="card card-small status-up" title="1Doc Legado - ONLINE (65ms)">
+            <div class="site-name">1Doc Legado</div>
+        </a>
+        
+        <a href="https://cidadaoseguro.saoluis.ma.gov.br/" target="_blank" class="card card-small status-up" title="Cidadão Seguro - ONLINE (87ms)">
+            <div class="site-name">Cidadão Seguro</div>
+        </a>
+        
+        <a href="https://linkverde.saoluis.ma.gov.br/" target="_blank" class="card card-small status-up" title="Link Verde - ONLINE (82ms)">
+            <div class="site-name">Link Verde</div>
+        </a>
+        
+        <a href="https://reurbapp.saoluis.ma.gov.br/ping" target="_blank" class="card card-small status-up" title="Reurb App - ONLINE (524ms)">
+            <div class="site-name">Reurb App</div>
+        </a>
+        
+        <a href="https://prodsemapa.saoluis.ma.gov.br/ping" target="_blank" class="card card-small status-up" title="Prod SEMAPA - ONLINE (509ms)">
+            <div class="site-name">Prod SEMAPA</div>
+        </a>
+        
+        <a href="https://cameras.saoluis.ma.gov.br" target="_blank" class="card card-small status-up" title="Câmeras - ONLINE (61ms)">
+            <div class="site-name">Câmeras</div>
+        </a>
+        
+        <a href="https://saoluisonline.saoluis.ma.gov.br" target="_blank" class="card card-highlight status-up" title="São Luís Online - ONLINE (83ms)">
+            <div class="site-name">São Luís Online</div>
+        </a>
+        
+        <a href="https://chatapp.saoluis.ma.gov.br/webchat/" target="_blank" class="card card-highlight status-up" title="Chat App - ONLINE (524ms)">
+            <div class="site-name">Chat App</div>
+        </a>
+        
+        <a href="https://sae.saoluis.ma.gov.br/" target="_blank" class="card card-highlight status-up" title="SAE - ONLINE (535ms)">
+            <div class="site-name">SAE</div>
+        </a>
+        
+        <a href="https://adi.saoluis.ma.gov.br" target="_blank" class="card card-highlight status-up" title="ADI - ONLINE (83ms)">
+            <div class="site-name">ADI</div>
+        </a>
+        
+        <a href="https://homolog-eggem.saoluis.ma.gov.br/" target="_blank" class="card card-highlight status-up" title="EGGEM (Homolog) - ONLINE (61ms)">
+            <div class="site-name">EGGEM (Homolog)</div>
+        </a>
+        
+        <a href="https://sisconqa.saoluis.ma.gov.br/" target="_blank" class="card card-highlight status-up" title="Siscon QA - ONLINE (527ms)">
+            <div class="site-name">Siscon QA</div>
+        </a>
+        
+        <a href="https://negociolegal.saoluis.ma.gov.br/" target="_blank" class="card card-highlight status-up" title="Negócio Legal - ONLINE (81ms)">
+            <div class="site-name">Negócio Legal</div>
+        </a>
+        
+        <a href="https://queridometro.saoluis.ma.gov.br/questionario/id" target="_blank" class="card card-highlight status-up" title="Queridômetro - ONLINE (81ms)">
+            <div class="site-name">Queridômetro</div>
+        </a>
+        
+        <a href="https://voucher.saoluis.ma.gov.br/" target="_blank" class="card card-highlight status-down" title="Voucher SLZ - OFFLINE: Request error: HTTPSConnectionPool(host='voucher.saoluis.ma.gov.br', port=443): Max retries exceeded with url: / (Caused by NameResolutionError('HTTPSConnection(host='voucher.saoluis.ma.gov.br', port=443): Failed to resolve 'voucher.saoluis.ma.gov.br' ([Errno 11001] getaddrinfo failed)'))">
+            <div class="site-name">Voucher SLZ</div>
+        </a>
+        
+        <a href="https://suporte.saoluis.ma.gov.br" target="_blank" class="card card-small status-up" title="Suporte - ONLINE (61ms)">
+            <div class="site-name">Suporte</div>
+        </a>
+        
+        <a href="https://mail.saoluis.ma.gov.br" target="_blank" class="card card-small status-up" title="Webmail - ONLINE (60ms)">
+            <div class="site-name">Webmail</div>
+        </a>
+        
+        <a href="https://cloudsemit.saoluis.ma.gov.br/" target="_blank" class="card card-small status-up" title="SEMIT Cloud - ONLINE (81ms)">
+            <div class="site-name">SEMIT Cloud</div>
+        </a>
+        
+    </div>
+</body>
+</html>
