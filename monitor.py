@@ -35,6 +35,7 @@ SITES = [
     ("BI", "https://bi.saoluis.ma.gov.br/"),
     ("Portal da Transparência", "https://transparencia.saoluis.ma.gov.br"),
     ("Transparência BI", "https://transparenciabi.saoluis.ma.gov.br"),
+    ("Portais", "http://portais.saoluis.ma.gov.br/"),
 
     # G3: Standard
     ("Precatório FUNDEF", "https://precatoriofundef.saoluis.ma.gov.br"),
