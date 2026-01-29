@@ -4,6 +4,11 @@ import random
 import warnings
 import urllib3
 import requests
+import socket
+import threading
+import http.server
+import socketserver
+import os
 from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -27,7 +32,7 @@ SITES = [
     ("E-SIC", "https://esic.saoluis.ma.gov.br"),
     ("PCA Contratos", "https://pcacontratos.saoluis.ma.gov.br"),
     ("Conecta São Luís", "https://conecta.saoluis.ma.gov.br"),
-    ("SEMUS - BI", "https://bi.saoluis.ma.gov.br/"),
+    ("BI", "https://bi.saoluis.ma.gov.br/"),
     ("Portal da Transparência", "https://transparencia.saoluis.ma.gov.br"),
     ("Transparência BI", "https://transparenciabi.saoluis.ma.gov.br"),
 
@@ -69,6 +74,49 @@ SELENIUM_MAX_ATTEMPTS = 1
 # Only use Selenium for sites that require JS rendering. Leave empty to avoid heavy browser starts.
 # Add exact hostnames or full URLs that need Selenium, e.g. {"https://example.com"}
 SELENIUM_REQUIRED = set()
+
+# HTTP server settings
+SERVER_HOST = "0.0.0.0"
+SERVER_PORT = 8000
+
+def get_local_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+    except Exception:
+        ip = "127.0.0.1"
+    finally:
+        s.close()
+    return ip
+
+class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
+    def end_headers(self):
+        # Ensure browsers do not cache the dashboard
+        self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        self.send_header('Pragma', 'no-cache')
+        self.send_header('Expires', '0')
+        super().end_headers()
+
+    def do_GET(self):
+        # Serve dashboard.html for root
+        if self.path in ('', '/', '/index.html'):
+            self.path = '/dashboard.html'
+        return super().do_GET()
+
+def start_http_server(host=SERVER_HOST, port=SERVER_PORT):
+    # Serve files from this script directory
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+    handler = NoCacheHandler
+    with socketserver.ThreadingTCPServer((host, port), handler) as httpd:
+        httpd.allow_reuse_address = True
+        local_ip = get_local_ip()
+        print(f"HTTP server: http://{local_ip}:{port}/ (listening on {host}:{port})")
+        try:
+            httpd.serve_forever()
+        except Exception as e:
+            print(f"HTTP server stopped: {e}")
+
 
 def get_chrome_options():
     """Optimized Chrome options for headless mode"""
@@ -430,6 +478,10 @@ def main():
     print(f"Paralelismo: {MAX_WORKERS} workers")
     print(f"Intervalo: {INTERVAL_SECONDS} segundos")
     print("-" * 50)
+
+    # Start HTTP server in background thread so others on the LAN can access dashboard.html
+    server_thread = threading.Thread(target=start_http_server, args=(SERVER_HOST, SERVER_PORT), daemon=True)
+    server_thread.start()
 
     while True:
         try:
