@@ -73,7 +73,14 @@ SELENIUM_MAX_ATTEMPTS = 1
 
 # Only use Selenium for sites that require JS rendering. Leave empty to avoid heavy browser starts.
 # Add exact hostnames or full URLs that need Selenium, e.g. {"https://example.com"}
-SELENIUM_REQUIRED = set()
+# `https://ma.gov.br` is slow/has cert issues — handle it with Selenium.
+SELENIUM_REQUIRED = {"https://ma.gov.br"}
+
+# Selenium worker pool size and per-site overrides
+SELENIUM_WORKERS = 2
+SELENIUM_OVERRIDES = {
+    "https://ma.gov.br": {"page_load_timeout": 30, "attempts": 2}
+}
 
 # HTTP server settings
 SERVER_HOST = "0.0.0.0"
@@ -265,6 +272,87 @@ def check_wrapper(site_tuple):
     name, url = site_tuple
     ok, code, ms, err = check(url)
     return name, url, ok, code, ms, err
+
+
+def fast_check(site_tuple):
+    name, url = site_tuple
+    t0 = time.perf_counter()
+    try:
+        r = requests.get(url, timeout=REQUEST_TIMEOUT, verify=False, allow_redirects=True, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        })
+        code = r.status_code
+        if code >= 500:
+            ms = int((time.perf_counter() - t0) * 1000)
+            return name, url, False, code, ms, f"HTTP {code} - Erro do Servidor"
+        ms = int((time.perf_counter() - t0) * 1000)
+        return name, url, True, code, ms, ""
+    except Exception as e:
+        ms = int((time.perf_counter() - t0) * 1000)
+        return name, url, False, "-", ms, f"Request error: {str(e)}"
+
+
+def selenium_check(site_tuple, page_load_timeout=None, attempts_override=None):
+    name, url = site_tuple
+    t0 = time.perf_counter()
+    attempts = attempts_override if attempts_override is not None else SELENIUM_MAX_ATTEMPTS
+    page_timeout = page_load_timeout if page_load_timeout is not None else SELENIUM_PAGE_LOAD_TIMEOUT
+
+    driver = None
+    tries = 0
+    while tries < attempts:
+        try:
+            tries += 1
+            service = Service()
+            driver = webdriver.Chrome(service=service, options=get_chrome_options())
+            driver.set_page_load_timeout(page_timeout)
+            driver.set_script_timeout(page_timeout)
+            driver.get(url)
+            time.sleep(random.uniform(0.2, 0.5))
+            page_text = driver.page_source
+            title = driver.title if driver.title else "Sem título"
+
+            # check for common browser error markers
+            error_codes = [
+                "DNS_PROBE_FINISHED_NXDOMAIN",
+                "ERR_NAME_NOT_RESOLVED",
+                "ERR_CONNECTION_REFUSED",
+                "ERR_CONNECTION_TIMED_OUT",
+                "ERR_INTERNET_DISCONNECTED",
+                "ERR_CONNECTION_CLOSED",
+                "ERR_SSL_PROTOCOL_ERROR",
+                "ERR_CERT_AUTHORITY_INVALID"
+            ]
+            for ec in error_codes:
+                if ec in page_text:
+                    if driver: driver.quit()
+                    ms = int((time.perf_counter() - t0) * 1000)
+                    return name, url, False, "-", ms, ec
+
+            title_lower = title.lower()
+            if any(err in title_lower for err in ["502", "503", "504", "bad gateway", "service unavailable"]):
+                if driver: driver.quit()
+                ms = int((time.perf_counter() - t0) * 1000)
+                return name, url, False, "50x", ms, f"HTTP Error via Browser ({title})"
+
+            if driver: driver.quit()
+            ms = int((time.perf_counter() - t0) * 1000)
+            return name, url, True, 200, ms, ""
+
+        except TimeoutException:
+            if driver: driver.quit()
+            if tries < attempts: continue
+            ms = int((time.perf_counter() - t0) * 1000)
+            return name, url, False, "-", ms, "Timeout (Selenium)"
+        except WebDriverException as e:
+            if driver: driver.quit()
+            err = str(e)
+            ms = int((time.perf_counter() - t0) * 1000)
+            return name, url, False, "-", ms, err
+        except Exception as e:
+            if driver: driver.quit()
+            ms = int((time.perf_counter() - t0) * 1000)
+            return name, url, False, "-", ms, str(e)
 
 def render_html(rows, generated_at):
     cards = []
@@ -488,17 +576,34 @@ def main():
             start_check = time.time()
             rows = []
             
-            # Use ThreadPoolExecutor for parallel processing
-            with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-                # Submit all tasks
-                future_to_url = {executor.submit(check_wrapper, site): site for site in SITES}
-                
-                # Process as they complete
-                for future in concurrent.futures.as_completed(future_to_url):
+            # Split sites between fast checks and Selenium-required checks so slow Selenium
+            # jobs don't occupy the main thread-pool slots needed for lightweight requests.
+            selenium_sites = [s for s in SITES if s[1] in SELENIUM_REQUIRED]
+            fast_sites = [s for s in SITES if s[1] not in SELENIUM_REQUIRED]
+
+              # Executors
+            with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as fast_executor, \
+                  concurrent.futures.ThreadPoolExecutor(max_workers=SELENIUM_WORKERS) as selenium_executor:
+
+                # submit fast checks
+                fast_futures = {fast_executor.submit(fast_check, site): site for site in fast_sites}
+
+                # submit selenium checks with overrides when present
+                selenium_futures = {}
+                for site in selenium_sites:
+                    url = site[1]
+                    overrides = SELENIUM_OVERRIDES.get(url, {})
+                    selenium_futures[selenium_executor.submit(
+                        selenium_check, site,
+                        overrides.get('page_load_timeout'),
+                        overrides.get('attempts'))] = site
+
+                # process completed futures from both pools as they finish
+                all_futures = list(fast_futures.keys()) + list(selenium_futures.keys())
+                for future in concurrent.futures.as_completed(all_futures):
                     try:
                         result = future.result()
                         rows.append(result)
-                        # Print progress
                         name, _, ok, _, ms, _ = result
                         status = "ONLINE" if ok else "OFFLINE"
                         print(f"Checked: {name:<20} -> {status} ({ms}ms)")
