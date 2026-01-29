@@ -407,18 +407,18 @@ def render_html(rows, generated_at):
         {''.join(cards)}
     </div>
     <script>
-        (function refreshNoCache(){
-            setTimeout(function(){
-                try {
+        (function refreshNoCache(){{
+            setTimeout(function(){{
+                try {{
                     const url = new URL(window.location.href);
                     url.searchParams.set('_', Date.now());
                     window.location.replace(url.toString());
-                } catch (e) {
+                }} catch (e) {{
                     // Fallback: simple reload
                     window.location.reload();
-                }
-            }, 5000);
-        })();
+                }}
+            }}, 5000);
+        }})();
     </script>
 </body>
 </html>
