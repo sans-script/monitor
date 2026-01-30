@@ -55,6 +55,7 @@ SITES = [
     ("EGGEM (Homolog)", "https://homolog-eggem.saoluis.ma.gov.br/"),
     ("Siscon QA", "https://sisconqa.saoluis.ma.gov.br/"),
     ("Negócio Legal", "https://negociolegal.saoluis.ma.gov.br/"),
+    ("Feirinhas", "https://feirinhas.saoluis.ma.gov.br"),
     ("Queridômetro", "https://queridometro.saoluis.ma.gov.br/questionario/id"),
     ("Voucher SLZ", "https://voucher.saoluis.ma.gov.br/"),
 
@@ -108,9 +109,9 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
         super().end_headers()
 
     def do_GET(self):
-        # Serve dashboard.html for root
+        # Serve index.html for root
         if self.path in ('', '/', '/index.html'):
-            self.path = '/dashboard.html'
+            self.path = '/index.html'
         return super().do_GET()
 
 def start_http_server(host=SERVER_HOST, port=SERVER_PORT):
@@ -356,7 +357,7 @@ def selenium_check(site_tuple, page_load_timeout=None, attempts_override=None):
             ms = int((time.perf_counter() - t0) * 1000)
             return name, url, False, "-", ms, str(e)
 
-def render_html(rows, generated_at):
+def render_html(rows, generated_at, failure_counts):
     cards = []
     
     # 1. Define categorization based on URL substrings or full matches
@@ -389,7 +390,19 @@ def render_html(rows, generated_at):
             sorted_rows.append((site_name, site_url, False, "-", 0, "Not checked"))
 
     for name, url, ok, code, ms, err in sorted_rows:
-        status_cls = "status-up" if ok else "status-down"
+        # Determine Status Class
+        # if ok -> Green
+        # if not ok and failure_count == 1 -> Yellow (Warning)
+        # if not ok and failure_count > 1 -> Red (Down)
+        
+        fail_count = failure_counts.get(url, 0)
+        
+        status_cls = "status-up"
+        if not ok:
+            if fail_count == 1:
+                status_cls = "status-warning"
+            else:
+                status_cls = "status-down"
         
         # Determine Card Style
         card_size_cls = "card-highlight" # Default
@@ -403,7 +416,8 @@ def render_html(rows, generated_at):
         title_attr = f"{name} - ONLINE ({ms}ms)"
         if not ok:
             err_clean = str(err).replace('"', "'")
-            title_attr = f"{name} - OFFLINE: {err_clean}"
+            state_label = "Instável" if fail_count == 1 else "OFFLINE"
+            title_attr = f"{name} - {state_label}: {err_clean}"
 
         cards.append(f"""
         <a href="{url}" target="_blank" class="card {card_size_cls} {status_cls}" title="{title_attr}">
@@ -430,10 +444,15 @@ def render_html(rows, generated_at):
             /* Status Colors */
             --bg-up: #064e3b;      /* Dark Green */
             --bg-down: #7f1d1d;    /* Dark Red */
+            --bg-warning: #854d0e; /* Dark Yellow/Amber */
+            
             --border-up: #059669;
             --border-down: #dc2626;
+            --border-warning: #ca8a04;
+
             --text-up: #ecfdf5;
             --text-down: #fef2f2;
+            --text-warning: #fefce8;
         }}
         body {{
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -497,12 +516,18 @@ def render_html(rows, generated_at):
             color: var(--text-down);
             animation: pulse 2s infinite;
         }}
+
+        .status-warning {{
+            background-color: var(--bg-warning);
+            border-color: var(--border-warning);
+            color: var(--text-warning);
+        }}
         
         .site-name {{
             font-weight: 700;
             font-size: 1.1rem;
             line-height: 1.25;
-            word-wrap: break-word; /* Ensure long words wrap */
+            word-wrap: break-word;
             max-width: 100%;
         }}
         
@@ -573,6 +598,9 @@ def main():
     server_thread = threading.Thread(target=start_http_server, args=(SERVER_HOST, SERVER_PORT), daemon=True)
     server_thread.start()
 
+    # Track consecutive failures: url -> int
+    failure_counts = {}
+
     while True:
         try:
             start_check = time.time()
@@ -606,20 +634,33 @@ def main():
                     try:
                         result = future.result()
                         rows.append(result)
-                        name, _, ok, _, ms, _ = result
-                        status = "ONLINE" if ok else "OFFLINE"
-                        print(f"Checked: {name:<20} -> {status} ({ms}ms)")
+                        name, url, ok, _, ms, _ = result
+                        
+                        # Update failure counts
+                        if ok:
+                            failure_counts[url] = 0
+                        else:
+                            failure_counts[url] = failure_counts.get(url, 0) + 1
+                        
+                        # Logging
+                        if ok:
+                            status_log = "ONLINE"
+                        else:
+                            fc = failure_counts[url]
+                            status_log = "WARN" if fc == 1 else "DOWN"
+
+                        print(f"Checked: {name:<20} -> {status_log} ({ms}ms)")
                     except Exception as exc:
                         print(f"Generated an exception: {exc}")
 
             generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            html = render_html(rows, generated_at)
+            html = render_html(rows, generated_at, failure_counts)
             
-            with open("dashboard.html", "w", encoding="utf-8") as f:
+            with open("index.html", "w", encoding="utf-8") as f:
                 f.write(html)
 
             elapsed = time.time() - start_check
-            print(f"[{generated_at}] Ciclo completo em {elapsed:.2f}s. dashboard.html atualizado.")
+            print(f"[{generated_at}] Ciclo completo em {elapsed:.2f}s. index.html atualizado.")
             print("-" * 50)
             
             # Sleep logic
