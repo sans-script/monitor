@@ -67,10 +67,10 @@ SITES = [
 
 # Polling interval (seconds) between cycles. Lower -> faster detection, but more CPU/network.
 INTERVAL_SECONDS = 5
-MAX_WORKERS = 10
+MAX_WORKERS = 30
 
 # Timeouts
-REQUEST_TIMEOUT = 5  # seconds for lightweight HTTP checks
+REQUEST_TIMEOUT = 10  # seconds for lightweight HTTP checks
 SELENIUM_PAGE_LOAD_TIMEOUT = 10  # seconds for Selenium page loads
 SELENIUM_MAX_ATTEMPTS = 1
 
