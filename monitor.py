@@ -23,6 +23,7 @@ SITES = [
     # G1: Hero
     ("Prefeitura São Luís", "https://saoluis.ma.gov.br"),
     ("Gov Maranhão", "https://ma.gov.br"),
+    ("Cloudflare", "https://www.cloudflarestatus.com"),
 
     # G2: Priority
     ("SEI", "https://sei.saoluis.ma.gov.br"),
@@ -363,7 +364,7 @@ def render_html(rows, generated_at, failure_counts):
     # 1. Define categorization based on URL substrings or full matches
     
     # Hero: Very large/prominent
-    hero_urls = ["https://saoluis.ma.gov.br", "https://ma.gov.br"]
+    hero_urls = ["https://saoluis.ma.gov.br", "https://ma.gov.br", "https://www.cloudflarestatus.com"]
     
     # Priority: Standard prominent size ("Highlighted" in user terms = normal but important)
     # The default for everything else in the top blocks
